@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title></title>
+  <style>
+  .img-list{display:inline-block;}
+  .img-center{display:block;text-align:center;}
+  .img-list .img-item{position:relative;display:inline-block;vertical-align:top;margin:10px 0 0 10px;text-align:center;}
+  .img-list .img-item .uploading{position:absolute;left:0;top:0;height:5px;background:#00ad0c;}
+  .img-list .img-item .delete{position:absolute;right:0;top:0;width:16px;line-height:16px;height:16px;background:#ccc;color:#fff;text-align:center;border-radius:50%;cursor:pointer;display:none;}
+  .img-list .img-item:hover .delete{display:block;}
+  .img-bar .pic{width:80px;height:80px;overflow:hidden;text-align:center;}
+  .img-list .pic::after{display:inline-block;vertical-align:middle;height:100%;width:0;}
+  .img-list .pic img{vertical-align:middle;max-height:100%;max-width:100%;}
+  .img-list p{margin:0;}
+  .img-bar .add{position:relative;display:inline-block;vertical-align:top;margin:10px 0 0 10px;width:80px;height:80px;overflow:hidden;text-align:center;border:1px solid #ccc;background:#f9f9f9;}
+  .img-bar .add::after{content:"";position:absolute;left:50%;top:50%;margin-left:-15px;margin-top:-2px;width:30px;height:4px;background:#ccc;}
+  .img-bar .add::before{content:"";position:absolute;left:50%;top:50%;margin-top:-15px;margin-left:-2px;width:4px;height:30px;background:#ccc;}
+  </style>
+</head>
+<body class="product">
+              <div class="img-bar">
+                <div class="img-title"></div>
+                <p class="hint">建议尺寸：640 x 640 像素或640 x 480 像素 ；大小100k以内；可以通过拖拽图片调整图片顺序。</p>
+                <ul id="imgSliderList" class="img-list clearfix">
+                  <!-- <li class="img-item">
+                    <div class="pic"><img src="" alt=""></div>
+                    <p class="img-size">640 x 480</p>
+                    <p class="img-storage">80k</p>
+                    <div class="uploading" style="width:50px;"></div>
+                    <span class="delete">×</span>
+                  </li> -->
+                  
+                </ul>
+                <span class="add"><input id="imgsliderUpload" style="position: absolute;top: 0px;bottom: 0px;width: 100%;opacity: 0;" type="file" multiple="multiple"></span>
+                <button id="uploadSliderImg">上传</button>
+              </div>
+
+  <script src="https://ss1.bdstatic.com/5eN1bjq8AAUYm2zgoY3K/r/www/cache/static/protocol/https/jquery/jquery-1.10.2.min_f2fb5194.js"></script>
+  <script type="text/javascript" src="http://rubaxa.github.io/Sortable/Sortable.js"></script>
+  <script>
+
+function uploadImg(opt){
+  //选择
+  $(opt.fileEle).on('change',function(e){
+      var _this = this;
+      var len = this.files.length;
+      for (var i = 0; i < len; i++) {
+        (function(i){
+          addUploadImg(_this.files[i],function(img){
+            if(i==len-1){
+              //console.log('ok');
+              Sortable.create($(opt.imgBox)[0],{animation:150});
+            }
+            // img.size// 3.59kb
+            // img.wh  // 640X480
+            //debugger;
+            //console.log(img);
+            var whLarge = '';
+            var sizeLarge = '';
+            if(img.width>opt.maxWidth || img.height>opt.maxHeight ){
+              whLarge = 'color:red';
+            }
+            if(img.size*1 > opt.maxSize){
+              sizeLarge = 'color:red';
+            }
+            var liHTML = ''+
+            '<li class="img-item">'+
+              '<div class="pic">'+
+               '<img file-id="'+img.fileId+'" src="'+ img.src +'" alt="">'+
+              '</div>'+
+              '<p class="img-size" style="'+whLarge+'">'+ img.wh +'</p>'+
+              '<p class="img-storage" style="'+sizeLarge+'">'+ img.size +'KB</p>'+
+              '<div class="uploading"></div>'+
+              '<span class="delete">×</span>'+
+            '</li>';
+            $(opt.imgBox).append(liHTML);
+          });
+        })(i);
+      };
+  });
+  
+  //通过  filemap = {
+  //   1:file对象
+  //   2:file对象
+  //   ...
+  // }
+  var filemap = {};
+  var fileNum = 0;
+  function addUploadImg(file,cb){
+    var r = new FileReader();
+    var img = new Image();
+    r.onload = function(){
+      img.onload = go;
+      function go(){
+        filemap[++fileNum] = file;
+        this.wh = this.width + 'X' + this.height;
+        this.size = (file.size/1024).toFixed(2);
+        this.fileId = fileNum;
+        cb && cb(this);
+      }
+      img.src = this.result;
+    }
+    r.readAsDataURL(file);
+  }
+
+  //上传
+  $(opt.uploadBtn).on('click',function(){
+    //var childs = $(opt.imgBox).children();
+    var childs = $('#imgSliderList').find('img').not('[uploadurl]');
+    if(childs.length){
+      //var imgs = childs.length;
+      for(var i = 0;i<childs.length;i++){
+          uploadingImg(childs[i]);
+      }
+    }
+  });
+
+  
+  function uploadingImg(img){
+    var formData = new FormData();
+    var _img = img;
+    var mime = $(_img).attr('img-mime');
+    var id =  $(_img).attr('file-id');
+    formData.append('file',filemap[id]);
+    var oReq = new XMLHttpRequest();
+    var progress = $(opt.imgBox).find('.uploading');
+    oReq.open("POST", opt.uploadUrl, true);
+    oReq.onload = function(){
+          if(oReq.status == 200){
+              $(progress).hide();
+              console.log(oReq.responseText);
+              $(_img).attr('uploadurl',oReq.responseText);
+          }
+    }
+    oReq.upload.onprogress = function(event){
+      if (event.lengthComputable) {
+        console.log(event.loaded);
+        console.log(event.total);
+        var complete = (event.loaded / event.total * 100 | 0);
+        $(progress).css({
+          width:complete+'%'
+        });
+      }
+    }
+    oReq.send(formData);
+  }
+}
+
+             
+uploadImg({
+  fileEle:$('#imgsliderUpload'),  // 打开文件按钮
+  imgBox:$('#imgSliderList'),     // 图片父元素  
+  uploadBtn:$('#uploadSliderImg'),// 上传按钮
+  maxWidth:640,
+  maxHeight:640,
+  maxSize:100,//kb
+  uploadUrl:'./upload.php'
+});
+
+  </script>
+</body>
+</html>
